@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import { CsvColumnMapping, TransactionType } from "@/types";
 
 export interface ParsedCsvRow {
-  [column: string\]: string;
+  [column: string]: string;
 }
 
 export function parseCsv(content: string): { headers: string[]; rows: ParsedCsvRow[] } {
