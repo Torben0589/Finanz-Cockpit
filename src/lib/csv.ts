@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import { CsvColumnMapping, TransactionType } from "@/types";
 
 export interface ParsedCsvRow {
-  [column: string]: string;
+  [column: string\]: string;
 }
 
 export function parseCsv(content: string): { headers: string[]; rows: ParsedCsvRow[] } {
@@ -27,37 +27,47 @@ export interface NormalizedTransaction {
  * Mapping layer: RAW CSV → Normalized Transaction Model (per spec §4.8).
  * Accepts a user-defined column mapping so it works with exports from any
  * bank (Sparkasse, DKB, ING, N26, ...) without hardcoding a single format.
+ *
+ * NOTE: Implemented with a plain for-loop (instead of .map().filter() with
+ * a type-guard predicate) on purpose — some TypeScript/Next.js build
+ * configurations fail to narrow the union type correctly through that
+ * chain ("Type 'null' is not assignable to type 'NormalizedTransaction'"),
+ * even though the pattern is logically correct. A for-loop with an
+ * explicitly typed accumulator array sidesteps that inference issue
+ * entirely and is just as readable.
  */
 export function mapCsvToTransactions(rows: ParsedCsvRow[], mapping: CsvColumnMapping): NormalizedTransaction[] {
-  return rows
-    .map((row) => {
-      const rawDate = row[mapping.date]?.trim();
-      const rawAmount = row[mapping.amount]?.trim().replace(/\./g, "").replace(",", ".");
-      if (!rawDate || rawAmount === undefined || rawAmount === "") return null;
+  const result: NormalizedTransaction[] = [];
 
-      const amount = parseFloat(rawAmount);
-      if (Number.isNaN(amount)) return null;
+  for (const row of rows) {
+    const rawDate = row[mapping.date]?.trim();
+    const rawAmount = row[mapping.amount]?.trim().replace(/\./g, "").replace(",", ".");
+    if (!rawDate || rawAmount === undefined || rawAmount === "") continue;
 
-      const date = normalizeDate(rawDate);
-      if (!date) return null;
+    const amount = parseFloat(rawAmount);
+    if (Number.isNaN(amount)) continue;
 
-      let type: TransactionType = amount >= 0 ? "INCOME" : "EXPENSE";
-      if (mapping.type && row[mapping.type]) {
-        const raw = row[mapping.type].trim().toUpperCase();
-        if (["INCOME", "EXPENSE", "BUY", "SELL", "DIVIDEND"].includes(raw)) {
-          type = raw as TransactionType;
-        }
+    const date = normalizeDate(rawDate);
+    if (!date) continue;
+
+    let type: TransactionType = amount >= 0 ? "INCOME" : "EXPENSE";
+    if (mapping.type && row[mapping.type]) {
+      const raw = row[mapping.type].trim().toUpperCase();
+      if (["INCOME", "EXPENSE", "BUY", "SELL", "DIVIDEND"].includes(raw)) {
+        type = raw as TransactionType;
       }
+    }
 
-      return {
-        date,
-        amount,
-        type,
-        note: mapping.note ? row[mapping.note] : undefined,
-        categoryName: mapping.category ? row[mapping.category] : undefined
-      };
-    })
-    .filter((r): r is NormalizedTransaction => r !== null);
+    result.push({
+      date,
+      amount,
+      type,
+      note: mapping.note ? row[mapping.note] : undefined,
+      categoryName: mapping.category ? row[mapping.category] : undefined
+    });
+  }
+
+  return result;
 }
 
 function normalizeDate(raw: string): string | null {
