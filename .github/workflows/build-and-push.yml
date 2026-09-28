@@ -57,11 +57,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Docker/GHCR repository names must be all-lowercase — GitHub repo
+      # names may contain uppercase letters (e.g. "Finanz-Cockpit"), so we
+      # force-lowercase it here to avoid a "invalid reference format"
+      # failure, regardless of how the repo happens to be capitalized.
+      - name: Compute lowercase image name
+        id: image_name
+        run: echo "value=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract image metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image_name.outputs.value }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
@@ -82,7 +90,7 @@ jobs:
       - name: Summary
         run: |
           echo "### 🚀 Image published" >> $GITHUB_STEP_SUMMARY
-          echo "\`ghcr.io/${{ env.IMAGE_NAME }}:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "\`ghcr.io/${{ steps.image_name.outputs.value }}:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "On the Raspberry Pi, run:" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
