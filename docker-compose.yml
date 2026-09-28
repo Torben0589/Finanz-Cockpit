@@ -1,0 +1,51 @@
+version: "3.9"
+
+# =====================================================================
+# Finance Cockpit — Docker Compose
+#
+# Default mode (SQLite, file-based, NAS-compatible):
+#   docker compose up -d
+#   -> Database file lives at ./data/finance.db on the host (bind mount).
+#      Point ./data at your Fritz!NAS SMB/WebDAV mount to store it there
+#      instead, e.g.  ./data -> /mnt/fritznas/finance
+#
+# Optional Postgres mode (spec §1 "Optional: PostgreSQL for NAS/Docker"):
+#   docker compose --profile postgres up -d
+#   -> Uses the "postgres" service below and switches DATABASE_URL.
+# =====================================================================
+
+services:
+  finance-cockpit:
+    build: .
+    container_name: finance-cockpit
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "file:/data/finance.db"
+      SESSION_SECRET: "${SESSION_SECRET:-change-me-to-a-random-64-char-hex-string}"
+      SESSION_TTL_MINUTES: "60"
+      PBKDF2_ITERATIONS: "210000"
+      PRICE_PROVIDER: "mock"
+      NODE_ENV: "production"
+    volumes:
+      # Local/NAS mode: bind-mount the SQLite database file directory.
+      # Replace "./data" with your Fritz!NAS SMB/WebDAV mount path if desired.
+      - ./data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance-cockpit-postgres
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+      POSTGRES_DB: finance
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres-data:
