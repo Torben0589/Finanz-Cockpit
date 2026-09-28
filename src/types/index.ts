@@ -2,13 +2,13 @@
 // prisma/schema.prisma (SQLite has no native enum support in Prisma).
 
 export type AccountType = "CASH" | "BANK" | "BROKER" | "CREDIT_CARD" | "OTHER";
-export const ACCOUNT_TYPES: AccountType[] = ["CASH", "BANK", "BROKER", "CREDIT_CARD", "OTHER"];
+export const ACCOUNT_TYPES = ["CASH", "BANK", "BROKER", "CREDIT_CARD", "OTHER"] as const;
 
 export type AssetType = "STOCK" | "ETF" | "CRYPTO" | "FUND" | "BOND" | "OTHER";
-export const ASSET_TYPES: AssetType[] = ["STOCK", "ETF", "CRYPTO", "FUND", "BOND", "OTHER"];
+export const ASSET_TYPES = ["STOCK", "ETF", "CRYPTO", "FUND", "BOND", "OTHER"] as const;
 
 export type TransactionType = "INCOME" | "EXPENSE" | "BUY" | "SELL" | "DIVIDEND";
-export const TRANSACTION_TYPES: TransactionType[] = ["INCOME", "EXPENSE", "BUY", "SELL", "DIVIDEND"];
+export const TRANSACTION_TYPES = ["INCOME", "EXPENSE", "BUY", "SELL", "DIVIDEND"] as const;
 
 export type CategoryType = "INCOME" | "EXPENSE";
 
