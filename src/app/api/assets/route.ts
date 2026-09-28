@@ -7,7 +7,7 @@ import { ASSET_TYPES } from "@/types";
 const createSchema = z.object({
   symbol: z.string().min(1).toUpperCase(),
   name: z.string().min(1),
-  type: z.enum(ASSET_TYPES as [string, ...string[]]).default("STOCK"),
+  type: z.enum(ASSET_TYPES).default("STOCK"),
   currency: z.string().default("EUR")
 });
 
