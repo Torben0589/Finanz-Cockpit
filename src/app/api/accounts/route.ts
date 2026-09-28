@@ -5,9 +5,15 @@ import { requireSession, AuthError } from "@/lib/auth";
 import { encryptField, decryptField } from "@/lib/crypto";
 import { ACCOUNT_TYPES } from "@/types";
 
+// ACCOUNT_TYPES is declared with "as const" in src/types, so z.enum()
+// preserves the literal union type (AccountType) instead of widening to
+// plain "string" — this is what lets TypeScript correctly infer
+// z.infer<typeof createSchema>["type"] as AccountType further down the
+// call chain (e.g. into Prisma's `type` field), avoiding a
+// "Type 'string' is not assignable to type 'AccountType'" build error.
 const createSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(ACCOUNT_TYPES as [string, ...string[]]),
+  type: z.enum(ACCOUNT_TYPES),
   currency: z.string().default("EUR"),
   accountNumber: z.string().optional(),
   startingBalance: z.number().default(0)
