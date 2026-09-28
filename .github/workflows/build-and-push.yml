@@ -1,0 +1,90 @@
+name: Build & Push Multi-Arch Image to GHCR
+# =====================================================================
+# GitOps Pipeline for Finance Cockpit.
+#
+# This workflow builds a linux/arm64 (Raspberry Pi 5) + linux/amd64
+# (regular servers/laptops) image on every push to "main" and publishes
+# it to the GitHub Container Registry (ghcr.io). The image contains ONLY
+# application code — never a database file, never a real .env, never any
+# personal data. See README.md §GitOps Deployment for the full flow.
+#
+# The Raspberry Pi never builds anything itself — it only pulls the
+# finished image (see deploy/pi/docker-compose.yml), which keeps the
+# 4 GB RAM budget free for actually running the app.
+# =====================================================================
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*.*.*"]
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Fails the build if anything that looks like real data was
+      # accidentally staged (defense in depth on top of .gitignore).
+      - name: Guard against committed secrets/data
+        run: |
+          if git ls-files | grep -E '(\.env$|\.db$|\.financebackup$)'; then
+            echo "❌ Found a file that must never be committed (data/.env/.financebackup)."
+            exit 1
+          fi
+          echo "✅ No sensitive files tracked in this repo."
+
+      - name: Set up QEMU (for cross-arch build steps)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### 🚀 Image published" >> $GITHUB_STEP_SUMMARY
+          echo "\`ghcr.io/${{ env.IMAGE_NAME }}:latest\` (linux/amd64, linux/arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "On the Raspberry Pi, run:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "cd deploy/pi && docker compose pull && docker compose up -d" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
