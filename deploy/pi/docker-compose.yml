@@ -26,7 +26,7 @@ version: "3.9"
 
 services:
   finance-cockpit:
-    image: ghcr.io/OWNER/REPO:latest   # <-- replace OWNER/REPO with your GitHub repo path
+    image: ghcr.io/torben0589/finanz-cockpit:latest   # <-- replace OWNER/REPO with your GitHub repo path
     container_name: finance-cockpit
     restart: unless-stopped
     ports:
