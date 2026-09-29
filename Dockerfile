@@ -14,8 +14,21 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV DATABASE_URL="file:/data/finance.db"
+# Increase Node's heap size during build — the default (~2GB on some
+# platforms) can be too tight for Next.js's webpack bundling step when
+# running under QEMU arm64 emulation, causing a silent/incomplete build
+# without a non-zero exit code.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npx prisma generate
 RUN npm run build
+# Fail the Docker build LOUDLY if the Next.js build didn't actually
+# finish writing its output — this exact failure mode (silent partial
+# build under QEMU emulation) previously produced a "successful" image
+# that crashed on the Raspberry Pi with "Could not find a production
+# build in the '.next' directory".
+RUN test -f .next/BUILD_ID || (echo "❌ Next.js build incomplete: .next/BUILD_ID missing!" && exit 1)
+RUN test -d .next/server || (echo "❌ Next.js build incomplete: .next/server missing!" && exit 1)
+RUN test -d .next/static || (echo "❌ Next.js build incomplete: .next/static missing!" && exit 1)
 
 FROM node:20-alpine AS runner
 WORKDIR /app
